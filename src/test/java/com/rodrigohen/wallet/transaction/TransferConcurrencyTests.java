@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -24,6 +23,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import com.rodrigohen.wallet.TestcontainersConfiguration;
 import com.rodrigohen.wallet.common.BusinessRuleException;
 import com.rodrigohen.wallet.user.CreateUserRequest;
+import com.rodrigohen.wallet.user.UserResponse;
 import com.rodrigohen.wallet.user.UserService;
 import com.rodrigohen.wallet.wallet.WalletService;
 
@@ -48,20 +48,20 @@ class TransferConcurrencyTests {
 	@Autowired
 	private JdbcTemplate jdbc;
 
-	private UUID maria;
+	private UserResponse maria;
 
-	private UUID joao;
+	private UserResponse joao;
 
 	@BeforeEach
 	void setUp() {
 		jdbc.execute("TRUNCATE transactions, wallets, users");
-		maria = userService.create(new CreateUserRequest("Maria Silva", "52998224725", "maria@example.com")).walletId();
-		joao = userService.create(new CreateUserRequest("Joao Souza", "11144477735", "joao@example.com")).walletId();
+		maria = userService.create(new CreateUserRequest("Maria Silva", "52998224725", "maria@example.com", "secret-password"));
+		joao = userService.create(new CreateUserRequest("Joao Souza", "11144477735", "joao@example.com", "secret-password"));
 	}
 
 	@Test
 	void concurrentTransfersNeverOverspend() throws Exception {
-		transactionService.deposit(maria, new BigDecimal("100.00"), "dep-maria");
+		transactionService.deposit(maria.id(), maria.walletId(), new BigDecimal("100.00"), "dep-maria");
 
 		// 20 transfers of 10.00 race for a balance of 100.00: exactly 10 may succeed
 		List<Callable<Boolean>> tasks = new ArrayList<>();
@@ -69,7 +69,8 @@ class TransferConcurrencyTests {
 			String key = "tr-" + i;
 			tasks.add(() -> {
 				try {
-					transactionService.transfer(maria, joao, new BigDecimal("10.00"), key);
+					transactionService.transfer(maria.id(), maria.walletId(), joao.walletId(),
+							new BigDecimal("10.00"), key);
 					return true;
 				}
 				catch (BusinessRuleException ex) {
@@ -87,8 +88,8 @@ class TransferConcurrencyTests {
 
 	@Test
 	void opposingTransfersDoNotDeadlock() throws Exception {
-		transactionService.deposit(maria, new BigDecimal("100.00"), "dep-maria");
-		transactionService.deposit(joao, new BigDecimal("100.00"), "dep-joao");
+		transactionService.deposit(maria.id(), maria.walletId(), new BigDecimal("100.00"), "dep-maria");
+		transactionService.deposit(joao.id(), joao.walletId(), new BigDecimal("100.00"), "dep-joao");
 
 		// Half the threads send Maria -> Joao and half Joao -> Maria, all at once
 		List<Callable<Boolean>> tasks = new ArrayList<>();
@@ -96,7 +97,8 @@ class TransferConcurrencyTests {
 			boolean fromMaria = i % 2 == 0;
 			String key = "tr-" + i;
 			tasks.add(() -> {
-				transactionService.transfer(fromMaria ? maria : joao, fromMaria ? joao : maria,
+				transactionService.transfer(fromMaria ? maria.id() : joao.id(),
+						fromMaria ? maria.walletId() : joao.walletId(), fromMaria ? joao.walletId() : maria.walletId(),
 						new BigDecimal("1.00"), key);
 				return true;
 			});
@@ -111,13 +113,14 @@ class TransferConcurrencyTests {
 
 	@Test
 	void sameIdempotencyKeySentConcurrentlyMovesMoneyOnce() throws Exception {
-		transactionService.deposit(maria, new BigDecimal("100.00"), "dep-maria");
+		transactionService.deposit(maria.id(), maria.walletId(), new BigDecimal("100.00"), "dep-maria");
 
 		List<Callable<Boolean>> tasks = new ArrayList<>();
 		for (int i = 0; i < THREADS; i++) {
 			tasks.add(() -> {
 				try {
-					transactionService.transfer(maria, joao, new BigDecimal("10.00"), "same-key");
+					transactionService.transfer(maria.id(), maria.walletId(), joao.walletId(),
+							new BigDecimal("10.00"), "same-key");
 					return true;
 				}
 				catch (DataIntegrityViolationException ex) {
@@ -133,8 +136,8 @@ class TransferConcurrencyTests {
 		assertThat(balance(joao)).isEqualByComparingTo("10.00");
 	}
 
-	private BigDecimal balance(UUID walletId) {
-		return walletService.get(walletId).balance();
+	private BigDecimal balance(UserResponse owner) {
+		return walletService.get(owner.walletId(), owner.id()).balance();
 	}
 
 	/**

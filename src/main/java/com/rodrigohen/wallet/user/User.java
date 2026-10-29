@@ -26,6 +26,9 @@ public class User {
 	@Column(nullable = false, unique = true)
 	private String email;
 
+	@Column(name = "password_hash", nullable = false)
+	private String passwordHash;
+
 	@Column(name = "created_at", nullable = false)
 	private Instant createdAt;
 
@@ -33,12 +36,17 @@ public class User {
 		// required by JPA
 	}
 
-	public User(String fullName, String document, String email) {
+	public User(String fullName, String document, String email, String passwordHash) {
 		this.id = UUID.randomUUID();
 		this.fullName = fullName;
 		this.document = document;
 		this.email = email;
+		this.passwordHash = passwordHash;
 		this.createdAt = Timestamps.now();
+	}
+
+	public String getPasswordHash() {
+		return passwordHash;
 	}
 
 	public UUID getId() {

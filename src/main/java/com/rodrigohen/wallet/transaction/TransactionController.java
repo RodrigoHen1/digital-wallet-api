@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.rodrigohen.wallet.auth.CurrentUserId;
+
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -30,25 +32,25 @@ public class TransactionController {
 	}
 
 	@PostMapping("/wallets/{walletId}/deposits")
-	public ResponseEntity<TransactionResponse> deposit(@PathVariable UUID walletId,
+	public ResponseEntity<TransactionResponse> deposit(@CurrentUserId UUID userId, @PathVariable UUID walletId,
 			@RequestHeader(IDEMPOTENCY_KEY) @NotBlank @Size(max = 64) String idempotencyKey,
 			@Valid @RequestBody DepositRequest request) {
-		return respond(transactionService.deposit(walletId, request.amount(), idempotencyKey));
+		return respond(transactionService.deposit(userId, walletId, request.amount(), idempotencyKey));
 	}
 
 	@PostMapping("/transfers")
-	public ResponseEntity<TransactionResponse> transfer(
+	public ResponseEntity<TransactionResponse> transfer(@CurrentUserId UUID userId,
 			@RequestHeader(IDEMPOTENCY_KEY) @NotBlank @Size(max = 64) String idempotencyKey,
 			@Valid @RequestBody TransferRequest request) {
-		return respond(transactionService.transfer(request.sourceWalletId(), request.targetWalletId(),
+		return respond(transactionService.transfer(userId, request.sourceWalletId(), request.targetWalletId(),
 				request.amount(), idempotencyKey));
 	}
 
 	@GetMapping("/wallets/{walletId}/transactions")
-	public StatementPage statement(@PathVariable UUID walletId,
+	public StatementPage statement(@CurrentUserId UUID userId, @PathVariable UUID walletId,
 			@RequestParam(defaultValue = "0") @Min(0) int page,
 			@RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-		return transactionService.statement(walletId, page, size);
+		return transactionService.statement(userId, walletId, page, size);
 	}
 
 	// 201 the first time; 200 with the original transaction when a retry replays the same Idempotency-Key

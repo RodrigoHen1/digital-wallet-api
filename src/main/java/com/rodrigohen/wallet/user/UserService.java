@@ -3,6 +3,7 @@ package com.rodrigohen.wallet.user;
 import java.util.Locale;
 import java.util.UUID;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,9 +19,12 @@ public class UserService {
 
 	private final WalletRepository wallets;
 
-	public UserService(UserRepository users, WalletRepository wallets) {
+	private final PasswordEncoder passwordEncoder;
+
+	public UserService(UserRepository users, WalletRepository wallets, PasswordEncoder passwordEncoder) {
 		this.users = users;
 		this.wallets = wallets;
+		this.passwordEncoder = passwordEncoder;
 	}
 
 	/**
@@ -38,7 +42,8 @@ public class UserService {
 			throw new ConflictException("A user with this email already exists");
 		}
 
-		User user = users.save(new User(request.fullName().trim(), document, email));
+		String passwordHash = passwordEncoder.encode(request.password());
+		User user = users.save(new User(request.fullName().trim(), document, email, passwordHash));
 		Wallet wallet = wallets.save(new Wallet(user));
 		return UserResponse.from(user, wallet);
 	}

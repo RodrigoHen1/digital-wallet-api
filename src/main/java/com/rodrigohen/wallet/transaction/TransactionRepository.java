@@ -10,7 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 
 public interface TransactionRepository extends JpaRepository<Transaction, UUID> {
 
-	Optional<Transaction> findByIdempotencyKey(String idempotencyKey);
+	Optional<Transaction> findByInitiatedByAndIdempotencyKey(UUID initiatedBy, String idempotencyKey);
 
 	@Query("select t from Transaction t where t.sourceWalletId = :walletId or t.targetWalletId = :walletId")
 	Page<Transaction> findByWallet(UUID walletId, Pageable pageable);

@@ -37,7 +37,10 @@ public class Transaction {
 	@Column(nullable = false, precision = 19, scale = 2)
 	private BigDecimal amount;
 
-	@Column(name = "idempotency_key", nullable = false, unique = true, length = 64)
+	@Column(name = "initiated_by", nullable = false)
+	private UUID initiatedBy;
+
+	@Column(name = "idempotency_key", nullable = false, length = 64)
 	private String idempotencyKey;
 
 	@Column(name = "created_at", nullable = false)
@@ -48,22 +51,29 @@ public class Transaction {
 	}
 
 	private Transaction(TransactionType type, UUID sourceWalletId, UUID targetWalletId, BigDecimal amount,
-			String idempotencyKey) {
+			UUID initiatedBy, String idempotencyKey) {
 		this.id = UUID.randomUUID();
 		this.type = type;
 		this.sourceWalletId = sourceWalletId;
 		this.targetWalletId = targetWalletId;
 		this.amount = amount;
+		this.initiatedBy = initiatedBy;
 		this.idempotencyKey = idempotencyKey;
 		this.createdAt = Timestamps.now();
 	}
 
-	static Transaction deposit(UUID walletId, BigDecimal amount, String idempotencyKey) {
-		return new Transaction(TransactionType.DEPOSIT, null, walletId, amount, idempotencyKey);
+	static Transaction deposit(UUID walletId, BigDecimal amount, UUID initiatedBy, String idempotencyKey) {
+		return new Transaction(TransactionType.DEPOSIT, null, walletId, amount, initiatedBy, idempotencyKey);
 	}
 
-	static Transaction transfer(UUID sourceWalletId, UUID targetWalletId, BigDecimal amount, String idempotencyKey) {
-		return new Transaction(TransactionType.TRANSFER, sourceWalletId, targetWalletId, amount, idempotencyKey);
+	static Transaction transfer(UUID sourceWalletId, UUID targetWalletId, BigDecimal amount, UUID initiatedBy,
+			String idempotencyKey) {
+		return new Transaction(TransactionType.TRANSFER, sourceWalletId, targetWalletId, amount, initiatedBy,
+				idempotencyKey);
+	}
+
+	public UUID getInitiatedBy() {
+		return initiatedBy;
 	}
 
 	/**

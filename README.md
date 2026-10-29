@@ -7,6 +7,7 @@ A REST API for a digital wallet: user accounts, deposits, transfers between user
 ## Tech stack
 
 - Java 25, Spring Boot 4
+- Spring Security with JWT (OAuth2 resource server), BCrypt
 - PostgreSQL 17, Flyway migrations, Spring Data JPA
 - Testcontainers for integration tests
 - Docker Compose for local development
@@ -22,23 +23,28 @@ Requirements: JDK 25 and Docker Desktop (running).
 Spring Boot starts the PostgreSQL container from `compose.yaml` automatically.
 Health check: http://localhost:8080/actuator/health
 
+To sign tokens with a fixed key (so they survive restarts), set `JWT_SECRET` to a base64 key of at least 32 bytes, e.g. `openssl rand -base64 32`. Without it, a random key is generated at startup.
+
 ## API
 
-| Method | Path                            | Description                                         |
-|--------|---------------------------------|-----------------------------------------------------|
-| POST   | `/users`                        | Create a user and their wallet (balance 0)          |
-| GET    | `/users/{id}`                   | Get a user                                          |
-| GET    | `/wallets/{id}`                 | Get a wallet and its balance                        |
-| POST   | `/wallets/{id}/deposits`        | Add money to a wallet (requires `Idempotency-Key`)  |
-| POST   | `/transfers`                    | Move money between wallets (requires `Idempotency-Key`) |
-| GET    | `/wallets/{id}/transactions`    | Statement, newest first (`?page=0&size=20`, max 100) |
+| Method | Path                            | Auth | Description                                         |
+|--------|---------------------------------|------|-----------------------------------------------------|
+| POST   | `/users`                        | —    | Sign up: create a user and their wallet (balance 0) |
+| POST   | `/auth/token`                   | —    | Log in: exchange email + password for a token       |
+| GET    | `/users/me`                     | ✔    | The logged-in user                                  |
+| GET    | `/wallets/{id}`                 | ✔    | One of your wallets and its balance                 |
+| POST   | `/wallets/{id}/deposits`        | ✔    | Add money to your wallet (requires `Idempotency-Key`) |
+| POST   | `/transfers`                    | ✔    | Move money from your wallet to any wallet (requires `Idempotency-Key`) |
+| GET    | `/wallets/{id}/transactions`    | ✔    | Your wallet's statement, newest first (`?page=0&size=20`, max 100) |
 
-Create a user:
+Endpoints marked ✔ need an `Authorization: Bearer <token>` header.
+
+Sign up:
 
 ```bash
 curl -i -X POST http://localhost:8080/users \
   -H "Content-Type: application/json" \
-  -d '{"fullName": "Maria Silva", "document": "529.982.247-25", "email": "maria@example.com"}'
+  -d '{"fullName": "Maria Silva", "document": "529.982.247-25", "email": "maria@example.com", "password": "correct-horse-battery"}'
 ```
 
 ```json
@@ -51,10 +57,23 @@ curl -i -X POST http://localhost:8080/users \
 }
 ```
 
+Log in:
+
+```bash
+curl -X POST http://localhost:8080/auth/token \
+  -H "Content-Type: application/json" \
+  -d '{"email": "maria@example.com", "password": "correct-horse-battery"}'
+```
+
+```json
+{ "accessToken": "eyJhbGciOiJIUzI1NiJ9...", "tokenType": "Bearer", "expiresIn": 900 }
+```
+
 Transfer money:
 
 ```bash
 curl -i -X POST http://localhost:8080/transfers \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9..." \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: 7c9e6679-7425-40de-944b-e07fc1f90ae7" \
   -d '{"sourceWalletId": "b3d7e4f0-...", "targetWalletId": "a1c2d3e4-...", "amount": 30.50}'
@@ -92,11 +111,21 @@ Errors use the [RFC 9457 Problem Details](https://www.rfc-editor.org/rfc/rfc9457
 | Status | When |
 |--------|------|
 | 400 | Invalid input, missing `Idempotency-Key` |
-| 404 | Unknown user or wallet |
+| 401 | Missing, invalid or expired token; wrong email or password |
+| 404 | Unknown wallet, or a wallet that belongs to someone else |
 | 409 | Duplicate CPF or email; a request with the same `Idempotency-Key` is still being processed |
 | 422 | Insufficient balance, transfer to the same wallet, `Idempotency-Key` reused for a different request |
 
 ## Design notes
+
+### Authentication and authorization
+
+- **Stateless JWT bearer tokens** (HS256, 15 minutes), issued by `/auth/token` and validated by Spring Security's OAuth2 resource server. The token's subject is the user id; the server keeps no sessions.
+- **Passwords are hashed with BCrypt** through Spring's delegating encoder (stored as `{bcrypt}...`), so the algorithm can be upgraded later without breaking existing passwords. Passwords must be 8–72 characters, because BCrypt ignores anything past 72 bytes.
+- **Login doesn't reveal which emails exist:** a wrong email and a wrong password return the same message, and an unknown email still runs a password check so both take the same time.
+- **Ownership is checked on every wallet operation.** You can only read, deposit into and transfer out of your own wallets; you can transfer *to* anyone.
+- **Someone else's wallet returns 404, not 403**, exactly like a wallet that doesn't exist, so wallet ids can't be probed.
+- **Idempotency keys are scoped per user**, so two users can never collide on the same key.
 
 ### Concurrency: no money is created or lost
 
@@ -112,7 +141,7 @@ If a client's connection drops after sending a transfer, it cannot know whether 
 
 - **Same key, same request** → the original transaction is returned (`200 OK`), no money moves again.
 - **Same key, different request** → `422`, because that is a client bug.
-- **Same key sent twice at the same instant** → the database's unique constraint on the key lets only one through; the whole second transaction rolls back.
+- **Same key sent twice at the same instant** → the database's unique constraint on (user, key) lets only one through; the whole second transaction rolls back.
 
 ### Data integrity
 
@@ -136,7 +165,7 @@ Tests start a throwaway PostgreSQL container with Testcontainers, so Docker must
 - [x] Users and wallets
 - [x] Deposits and transfers (with concurrency safety and idempotency keys)
 - [x] Transaction statement
-- [ ] Authentication with JWT
+- [x] Authentication with JWT
 - [ ] OpenAPI / Swagger docs
 - [ ] CI with GitHub Actions
 - [ ] Dockerfile for the application

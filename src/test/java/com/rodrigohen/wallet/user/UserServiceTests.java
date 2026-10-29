@@ -13,6 +13,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.rodrigohen.wallet.common.ConflictException;
 import com.rodrigohen.wallet.wallet.Wallet;
@@ -27,29 +28,35 @@ class UserServiceTests {
 	@Mock
 	private WalletRepository wallets;
 
+	@Mock
+	private PasswordEncoder passwordEncoder;
+
 	@InjectMocks
 	private UserService userService;
 
 	@Test
-	void storesNormalizedCpfAndEmail() {
+	void storesNormalizedCpfAndEmailAndHashedPassword() {
+		when(passwordEncoder.encode("secret-password")).thenReturn("{bcrypt}hashed");
 		when(users.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(wallets.save(any(Wallet.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-		userService.create(new CreateUserRequest("  Maria Silva ", "529.982.247-25", " Maria@Example.COM "));
+		userService.create(new CreateUserRequest("  Maria Silva ", "529.982.247-25", " Maria@Example.COM ",
+				"secret-password"));
 
 		ArgumentCaptor<User> saved = ArgumentCaptor.forClass(User.class);
 		verify(users).save(saved.capture());
 		assertThat(saved.getValue().getDocument()).isEqualTo("52998224725");
 		assertThat(saved.getValue().getEmail()).isEqualTo("maria@example.com");
 		assertThat(saved.getValue().getFullName()).isEqualTo("Maria Silva");
+		assertThat(saved.getValue().getPasswordHash()).isEqualTo("{bcrypt}hashed");
 	}
 
 	@Test
 	void doesNotCreateAnythingWhenCpfIsTaken() {
 		when(users.existsByDocument("52998224725")).thenReturn(true);
 
-		assertThatThrownBy(
-				() -> userService.create(new CreateUserRequest("Maria", "529.982.247-25", "maria@example.com")))
+		assertThatThrownBy(() -> userService
+			.create(new CreateUserRequest("Maria", "529.982.247-25", "maria@example.com", "secret-password")))
 			.isInstanceOf(ConflictException.class);
 
 		verify(users, never()).save(any());

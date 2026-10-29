@@ -13,6 +13,10 @@ public interface WalletRepository extends JpaRepository<Wallet, UUID> {
 
 	Optional<Wallet> findByOwnerId(UUID ownerId);
 
+	Optional<Wallet> findByIdAndOwnerId(UUID id, UUID ownerId);
+
+	boolean existsByIdAndOwnerId(UUID id, UUID ownerId);
+
 	/**
 	 * Loads the wallet with {@code SELECT ... FOR UPDATE}: other transactions that want to change this wallet wait
 	 * until the current one commits, so two transfers can never both spend the same money.

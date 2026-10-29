@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.rodrigohen.wallet.auth.CurrentUserId;
+
 @RestController
 @RequestMapping("/wallets")
 public class WalletController {
@@ -18,8 +20,8 @@ public class WalletController {
 	}
 
 	@GetMapping("/{id}")
-	public WalletResponse get(@PathVariable UUID id) {
-		return walletService.get(id);
+	public WalletResponse get(@PathVariable UUID id, @CurrentUserId UUID userId) {
+		return walletService.get(id, userId);
 	}
 
 }
