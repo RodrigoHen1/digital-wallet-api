@@ -1,5 +1,7 @@
 # Digital Wallet API
 
+[![CI](https://github.com/RodrigoHen1/digital-wallet-api/actions/workflows/ci.yml/badge.svg)](https://github.com/RodrigoHen1/digital-wallet-api/actions/workflows/ci.yml)
+
 A REST API for a digital wallet: user accounts, deposits, transfers between users and a paginated statement. It is built to stay correct when many requests hit the same wallet at once.
 
 > Work in progress — built step by step. See the roadmap below.
@@ -163,6 +165,8 @@ If a client's connection drops after sending a transfer, it cannot know whether 
 
 Tests start a throwaway PostgreSQL container with Testcontainers, so Docker must be running. The suite has unit tests (Mockito, no database), API integration tests (MockMvc against a real database) and concurrency tests.
 
+**Continuous integration:** every push and pull request runs the full suite on GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)), including the database and concurrency tests. If a test fails, its reports are uploaded as a build artifact.
+
 ## Roadmap
 
 - [x] Project setup
@@ -171,5 +175,5 @@ Tests start a throwaway PostgreSQL container with Testcontainers, so Docker must
 - [x] Transaction statement
 - [x] Authentication with JWT
 - [x] OpenAPI / Swagger docs
-- [ ] CI with GitHub Actions
+- [x] CI with GitHub Actions
 - [ ] Dockerfile for the application
