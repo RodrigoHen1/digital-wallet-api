@@ -8,6 +8,7 @@ A REST API for a digital wallet: user accounts, deposits, transfers between user
 
 - Java 25, Spring Boot 4
 - Spring Security with JWT (OAuth2 resource server), BCrypt
+- springdoc-openapi (OpenAPI 3.1 + Swagger UI)
 - PostgreSQL 17, Flyway migrations, Spring Data JPA
 - Testcontainers for integration tests
 - Docker Compose for local development
@@ -21,7 +22,10 @@ Requirements: JDK 25 and Docker Desktop (running).
 ```
 
 Spring Boot starts the PostgreSQL container from `compose.yaml` automatically.
-Health check: http://localhost:8080/actuator/health
+
+- **Interactive API docs (Swagger UI):** http://localhost:8080/swagger-ui.html — sign up, get a token, click **Authorize** and try every endpoint from the browser
+- OpenAPI spec: http://localhost:8080/v3/api-docs
+- Health check: http://localhost:8080/actuator/health
 
 To sign tokens with a fixed key (so they survive restarts), set `JWT_SECRET` to a base64 key of at least 32 bytes, e.g. `openssl rand -base64 32`. Without it, a random key is generated at startup.
 
@@ -166,6 +170,6 @@ Tests start a throwaway PostgreSQL container with Testcontainers, so Docker must
 - [x] Deposits and transfers (with concurrency safety and idempotency keys)
 - [x] Transaction statement
 - [x] Authentication with JWT
-- [ ] OpenAPI / Swagger docs
+- [x] OpenAPI / Swagger docs
 - [ ] CI with GitHub Actions
 - [ ] Dockerfile for the application
