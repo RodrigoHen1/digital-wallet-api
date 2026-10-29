@@ -3,6 +3,8 @@ package com.rodrigohen.wallet.user;
 import java.time.Instant;
 import java.util.UUID;
 
+import com.rodrigohen.wallet.common.Timestamps;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -36,7 +38,7 @@ public class User {
 		this.fullName = fullName;
 		this.document = document;
 		this.email = email;
-		this.createdAt = Instant.now();
+		this.createdAt = Timestamps.now();
 	}
 
 	public UUID getId() {

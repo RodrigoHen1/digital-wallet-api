@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
+import com.rodrigohen.wallet.common.BusinessRuleException;
+import com.rodrigohen.wallet.common.Timestamps;
 import com.rodrigohen.wallet.user.User;
 
 import jakarta.persistence.Column;
@@ -44,7 +46,18 @@ public class Wallet {
 		this.id = UUID.randomUUID();
 		this.owner = owner;
 		this.balance = BigDecimal.ZERO.setScale(2);
-		this.createdAt = Instant.now();
+		this.createdAt = Timestamps.now();
+	}
+
+	public void credit(BigDecimal amount) {
+		this.balance = this.balance.add(amount);
+	}
+
+	public void debit(BigDecimal amount) {
+		if (this.balance.compareTo(amount) < 0) {
+			throw new BusinessRuleException("Insufficient balance");
+		}
+		this.balance = this.balance.subtract(amount);
 	}
 
 	public UUID getId() {

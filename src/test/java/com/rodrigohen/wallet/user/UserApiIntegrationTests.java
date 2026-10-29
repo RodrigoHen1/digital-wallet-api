@@ -16,12 +16,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 import com.jayway.jsonpath.JsonPath;
 import com.rodrigohen.wallet.TestcontainersConfiguration;
-import com.rodrigohen.wallet.wallet.WalletRepository;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -34,15 +34,11 @@ class UserApiIntegrationTests {
 	private MockMvc mvc;
 
 	@Autowired
-	private UserRepository users;
-
-	@Autowired
-	private WalletRepository wallets;
+	private JdbcTemplate jdbc;
 
 	@BeforeEach
 	void cleanDatabase() {
-		wallets.deleteAll();
-		users.deleteAll();
+		jdbc.execute("TRUNCATE transactions, wallets, users");
 	}
 
 	@Test
