@@ -4,8 +4,6 @@
 
 A REST API for a digital wallet: user accounts, deposits, transfers between users and a paginated statement. It is built to stay correct when many requests hit the same wallet at once.
 
-> Work in progress — built step by step. See the roadmap below.
-
 ## Tech stack
 
 - Java 25, Spring Boot 4
@@ -13,7 +11,8 @@ A REST API for a digital wallet: user accounts, deposits, transfers between user
 - springdoc-openapi (OpenAPI 3.1 + Swagger UI)
 - PostgreSQL 17, Flyway migrations, Spring Data JPA
 - Testcontainers for integration tests
-- Docker Compose for local development
+- Docker (multi-stage, layered image) and Docker Compose
+- GitHub Actions
 
 ## Running locally
 
@@ -30,6 +29,23 @@ Spring Boot starts the PostgreSQL container from `compose.yaml` automatically.
 - Health check: http://localhost:8080/actuator/health
 
 To sign tokens with a fixed key (so they survive restarts), set `JWT_SECRET` to a base64 key of at least 32 bytes, e.g. `openssl rand -base64 32`. Without it, a random key is generated at startup.
+
+### Running everything in Docker
+
+No JDK needed, only Docker:
+
+```bash
+docker compose --profile app up --build
+```
+
+This builds the application image from the [`Dockerfile`](Dockerfile) and starts it with PostgreSQL. The app waits until the database is healthy, then is available at http://localhost:8080.
+
+The image:
+
+- is built in **two stages**: the JDK compiles the app, and the final image contains only a JRE and the app — no build tools or source code;
+- splits the app into **layers** (dependencies ≈ 67 MB, application code ≈ 74 KB), so after a code change only the tiny last layer is rebuilt and re-downloaded;
+- runs as an **unprivileged user**, not root;
+- has a **`HEALTHCHECK`** on `/actuator/health`, and sizes the JVM heap from the container's memory limit.
 
 ## API
 
@@ -165,9 +181,9 @@ If a client's connection drops after sending a transfer, it cannot know whether 
 
 Tests start a throwaway PostgreSQL container with Testcontainers, so Docker must be running. The suite has unit tests (Mockito, no database), API integration tests (MockMvc against a real database) and concurrency tests.
 
-**Continuous integration:** every push and pull request runs the full suite on GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)), including the database and concurrency tests. If a test fails, its reports are uploaded as a build artifact.
+**Continuous integration:** every push and pull request runs two jobs on GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): the full test suite, including the database and concurrency tests, and a Docker job that builds the image, starts it with PostgreSQL and checks it becomes healthy. If a test fails, its reports are uploaded as a build artifact.
 
-## Roadmap
+## What's implemented
 
 - [x] Project setup
 - [x] Users and wallets
@@ -176,4 +192,4 @@ Tests start a throwaway PostgreSQL container with Testcontainers, so Docker must
 - [x] Authentication with JWT
 - [x] OpenAPI / Swagger docs
 - [x] CI with GitHub Actions
-- [ ] Dockerfile for the application
+- [x] Dockerfile for the application

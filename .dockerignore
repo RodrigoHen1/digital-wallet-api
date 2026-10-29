@@ -1,0 +1,11 @@
+# Only what the build needs goes into the Docker build context
+target/
+.git/
+.github/
+.idea/
+.vscode/
+*.iml
+*.md
+compose.yaml
+Dockerfile
+.dockerignore

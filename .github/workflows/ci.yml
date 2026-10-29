@@ -39,3 +39,26 @@ jobs:
           name: test-reports
           path: target/surefire-reports/
           retention-days: 7
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # Proves the Dockerfile still builds and the image starts; nothing is published
+      - name: Build image
+        run: docker build -t digital-wallet-api .
+
+      - name: Start app with its database and wait until healthy
+        run: |
+          docker compose --profile app up -d --wait --wait-timeout 120
+
+      - name: Check health endpoint
+        run: curl --fail --silent http://localhost:8080/actuator/health
+
+      - name: Show app logs on failure
+        if: failure()
+        run: docker compose --profile app logs app
