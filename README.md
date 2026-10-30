@@ -193,3 +193,7 @@ Tests start a throwaway PostgreSQL container with Testcontainers, so Docker must
 - [x] OpenAPI / Swagger docs
 - [x] CI with GitHub Actions
 - [x] Dockerfile for the application
+
+## License
+
+[MIT](LICENSE)
